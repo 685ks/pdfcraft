@@ -12,7 +12,7 @@ use egui::{Align, Layout};
 use crate::{PdfCraftApp, theme, widgets};
 
 /// Where every PdfCraft release is listed.
-pub const RELEASES_PAGE: &str = "https://github.com/storytold/pdfcraft/releases";
+pub const RELEASES_PAGE: &str = pdfcraft_engine::links::RELEASES;
 
 /// The latest published release.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -53,6 +53,8 @@ pub(crate) enum Check {
     #[cfg(not(target_arch = "wasm32"))]
     Running(std::sync::mpsc::Receiver<Result<Release, String>>),
     Done(Result<Release, String>),
+    /// The launcher manages updates ([`PdfCraftApp::launcher_managed`]): nothing is asked.
+    Managed,
 }
 
 #[derive(Default)]
@@ -65,6 +67,11 @@ pub(crate) struct Updates {
 impl PdfCraftApp {
     /// Help ▸ Check for updates: ask for the latest release and show the outcome.
     pub fn check_for_updates(&mut self) {
+        if self.launcher_managed {
+            self.updates.open = true;
+            self.updates.check = Check::Managed;
+            return;
+        }
         let Some(source) = self.update_source.clone() else {
             self.open_url(RELEASES_PAGE);
             return;
@@ -148,6 +155,9 @@ pub(crate) fn dialog(app: &mut PdfCraftApp, ctx: &egui::Context) {
             }
             Check::Done(Ok(_)) => {
                 ui.label(crate::i18n::fmt(tl!("PdfCraft {c} is up to date."), &[("c", current)]));
+            }
+            Check::Managed => {
+                ui.label(egui::RichText::new(pdfcraft_engine::links::UPDATES_BY_LAUNCHER).strong());
             }
             Check::Done(Err(e)) => {
                 ui.label(crate::i18n::fmt(tl!("Couldn't check for updates: {e}"), &[("e", &e.to_string())]));
