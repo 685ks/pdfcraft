@@ -1,0 +1,12 @@
+# Release metadata for the Arthavan Projects release workflow (685ks/craft-actions,
+# .github/workflows/release.yml) and the launcher that installs PdfCraft.
+id = "pdfcraft"
+display_name = "PdfCraft"
+bundle_id = "app.freedev.ainz.ks.PdfCraft"
+publisher = "Arthavan Projects"
+description = "A PDF workbench: read, comment, fill and sign, organize, combine, split and secure PDFs"
+categories = ["Office", "Viewer"]
+icon_png = "assets/app-icon/hicolor/512x512/apps/app.freedev.ainz.ks.PdfCraft.png"
+icon_icns = "assets/app-icon/pdfcraft.icns"
+icon_ico = "assets/app-icon/pdfcraft.ico"
+license = "MIT OR Apache-2.0"
