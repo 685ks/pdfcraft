@@ -23,7 +23,7 @@ craft-docpath = { version = "0.1.0", git = "https://github.com/685ks/craft-libs"
 # The Arthavan Projects house theme: shared design tokens (colours, radii, shadows).
 craft-tokens = { git = "https://github.com/685ks/craft-libs", tag = "v0.1.0", version = "=0.1.0" }
 # Embeds the optional craft-fonts checkout (CRAFT_FONTS_DIR) at build time; no dependencies.
-craft-fonts-build = { git = "https://github.com/685ks/craft-fonts", rev = "f28afbb766ccddc9cfd136b8cf0b451a24149e1b" }
+craft-fonts-build = { git = "https://github.com/685ks/craft-fonts", rev = "f28afbb766ccddc9cfd136b8cf0b451a24149e1b", version = "0.1.0" }
 # internal
 pdfcraft-geom = { path = "crates/geom", version = "0.10.1" }
 pdfcraft-filters = { path = "crates/filters", version = "0.10.1" }
