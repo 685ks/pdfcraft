@@ -368,12 +368,12 @@ dialogs, panels and keyboard shortcuts. Command search accepts the translated la
 English label and the stable command id; filenames, PDF contents, author names, custom
 action names and error details from the engine or the operating system keep their own text.
 
-Japanese fonts come from [craft-fonts](https://github.com/storytold/craft-fonts), an optional build
+Japanese fonts come from [craft-fonts](https://github.com/685ks/craft-fonts), an optional build
 input that every release includes. To build with them (Japanese interface text, and Japanese text in
 edited PDFs):
 
 ```sh
-git clone https://github.com/storytold/craft-fonts ../craft-fonts
+git clone https://github.com/685ks/craft-fonts ../craft-fonts
 CRAFT_FONTS_DIR=../craft-fonts cargo run --release -p pdfcraft -- some.pdf
 ```
 
@@ -506,7 +506,7 @@ Copyright (c) 2026 ArtCraft Team and the PdfCraft contributors. Required notices
 
 Bundled fonts, icons, images and other assets keep their own open licenses; each one is listed
 with its author, source and license in [ATTRIBUTION.md](ATTRIBUTION.md). Release builds also embed
-the Japanese fonts of [craft-fonts](https://github.com/storytold/craft-fonts/blob/main/ATTRIBUTION.md)
+the Japanese fonts of [craft-fonts](https://github.com/685ks/craft-fonts/blob/main/ATTRIBUTION.md)
 (SIL Open Font License 1.1).
 
 This repository is Arthavan Projects' fork of [storytold/pdfcraft](https://github.com/storytold/pdfcraft),

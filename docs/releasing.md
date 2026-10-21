@@ -64,7 +64,7 @@ The workflow sets `PDFCRAFT_BUILD_SHA` and `PDFCRAFT_BUILD_DATE` (`packaging/env
 for local builds): the commit is recorded in the macOS `Info.plist` (`PdfCraftBuildCommit`) and the
 date in the AppStream metadata. The binaries don't embed the commit yet.
 
-**Fonts:** every job checks out [craft-fonts](https://github.com/storytold/craft-fonts) at the commit
+**Fonts:** every job checks out [craft-fonts](https://github.com/685ks/craft-fonts) at the commit
 pinned in `release.yml` and builds with `CRAFT_FONTS_DIR` and `CRAFT_FONTS_REQUIRED=1`, so releases
 embed its Japanese fonts and fail rather than ship without them (`AGENTS.md` §1.4). Bump the pin
 deliberately.

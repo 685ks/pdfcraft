@@ -1,4 +1,4 @@
-//! Fonts from the optional craft-fonts build input (<https://github.com/storytold/craft-fonts>).
+//! Fonts from the optional craft-fonts build input (<https://github.com/685ks/craft-fonts>).
 //!
 //! `build.rs` embeds every font in craft-fonts' manifest when PdfCraft is built with
 //! `CRAFT_FONTS_DIR=<checkout>`; otherwise [`CRAFT_FONTS`] is empty and everything here returns

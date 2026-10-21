@@ -61,6 +61,8 @@ pub struct Tokens {
     pub accent: Color32,
     pub accent_text: Color32,
     pub accent_soft: Color32,
+    /// Text and icons drawn on an `accent` fill (primary buttons).
+    pub on_accent: Color32,
     pub field: Color32,
     pub badge_new: Color32,
     pub page_shadow: Color32,
@@ -89,35 +91,48 @@ impl Tokens {
                 accent: Color32::from_rgb(0x1B, 0x63, 0xE0),
                 accent_text: Color32::from_rgb(0x17, 0x55, 0xC4),
                 accent_soft: Color32::from_rgb(0xE3, 0xEC, 0xFD),
+                on_accent: Color32::WHITE,
                 field: Color32::from_rgb(0xFF, 0xFF, 0xFF),
                 badge_new: Color32::from_rgb(0x1B, 0x63, 0xE0),
                 page_shadow: Color32::from_black_alpha(34),
                 radius: 6,
             },
-            ThemeKind::Dark => Self {
-                kind,
-                titlebar: Color32::from_rgb(0x1B, 0x1B, 0x1E),
-                chrome: Color32::from_rgb(0x26, 0x26, 0x2A),
-                panel: Color32::from_rgb(0x26, 0x26, 0x2A),
-                pasteboard: Color32::from_rgb(0x19, 0x19, 0x1C),
-                card: Color32::from_rgb(0x2E, 0x2E, 0x33),
-                border: Color32::from_rgb(0x3C, 0x3C, 0x43),
-                divider: Color32::from_rgb(0x33, 0x33, 0x39),
-                text: Color32::from_rgb(0xEC, 0xEC, 0xEF),
-                text_muted: Color32::from_rgb(0xAE, 0xAE, 0xB6),
-                text_faint: Color32::from_rgb(0x97, 0x97, 0x9E),
-                icon: Color32::from_rgb(0xD4, 0xD4, 0xDA),
-                hover: Color32::from_rgb(0x34, 0x34, 0x3A),
-                pressed: Color32::from_rgb(0x3E, 0x3E, 0x45),
-                selected: Color32::from_rgb(0x23, 0x3A, 0x63),
-                accent: Color32::from_rgb(0x4B, 0x8B, 0xF5),
-                accent_text: Color32::from_rgb(0x8C, 0xB6, 0xFA),
-                accent_soft: Color32::from_rgb(0x24, 0x36, 0x57),
-                field: Color32::from_rgb(0x1E, 0x1E, 0x22),
-                badge_new: Color32::from_rgb(0x3D, 0x7D, 0xEE),
-                page_shadow: Color32::from_black_alpha(120),
-                radius: 6,
-            },
+            ThemeKind::Dark => Self::house(),
+        }
+    }
+
+    /// The Arthavan Projects house theme (the shared design tokens of `craft-tokens`), used for
+    /// the dark appearance. The design system's translucent surfaces are flattened onto the opaque
+    /// panel colour, since egui can't blur what is behind a panel. Pages stay white.
+    pub fn house() -> Self {
+        use craft_tokens::{Rgba, color as c};
+        let rgb = |x: Rgba| Color32::from_rgba_unmultiplied(x.r, x.g, x.b, x.a);
+        let panel = c::SURFACE_PANEL.over(c::BG_BASE);
+        let on_panel = |x: Rgba| rgb(x.over(panel));
+        Self {
+            kind: ThemeKind::Dark,
+            titlebar: rgb(c::BG_BASE),
+            chrome: rgb(panel),
+            panel: rgb(panel),
+            pasteboard: rgb(c::BG_SHEET),
+            card: on_panel(c::SURFACE_FILL_1),
+            border: on_panel(c::BORDER_LINE),
+            divider: on_panel(c::BORDER_LINE_SOFT),
+            text: rgb(c::TEXT_INK),
+            text_muted: rgb(c::TEXT_MUTED),
+            text_faint: rgb(c::TEXT_FAINT),
+            icon: rgb(c::TEXT_INK),
+            hover: on_panel(c::SURFACE_FILL_2),
+            pressed: on_panel(c::SURFACE_FILL_3),
+            selected: on_panel(c::ACCENT_BASE.with_alpha(0.22)),
+            accent: rgb(c::ACCENT_BASE),
+            accent_text: rgb(c::ACCENT_BRIGHT),
+            accent_soft: on_panel(c::ACCENT_BASE.with_alpha(0.16)),
+            on_accent: rgb(c::TEXT_ON_ACCENT),
+            field: rgb(c::BG_BASE),
+            badge_new: rgb(c::ACCENT_BASE),
+            page_shadow: Color32::from_black_alpha(140),
+            radius: 6,
         }
     }
 
@@ -439,7 +454,19 @@ pub fn apply(ctx: &egui::Context, kind: ThemeKind) {
     v.override_text_color = Some(t.text);
     v.window_corner_radius = CornerRadius::same(10);
     v.menu_corner_radius = CornerRadius::same(8);
-    v.window_shadow = egui::Shadow { offset: [0, 8], blur: 28, spread: 0, color: Color32::from_black_alpha(if t.dark() { 110 } else { 38 }) };
+    v.window_shadow = if t.dark() {
+        // The house panel shadow (craft-tokens).
+        let s = craft_tokens::shadow::PANEL;
+        let px = |v: f32| v.clamp(-127.0, 127.0).round() as i8;
+        egui::Shadow {
+            offset: [px(s.x), px(s.y)],
+            blur: s.blur.clamp(0.0, 255.0).round() as u8,
+            spread: s.spread.clamp(0.0, 255.0).round() as u8,
+            color: Color32::from_rgba_unmultiplied(s.color.r, s.color.g, s.color.b, s.color.a),
+        }
+    } else {
+        egui::Shadow { offset: [0, 8], blur: 28, spread: 0, color: Color32::from_black_alpha(38) }
+    };
     v.popup_shadow = egui::Shadow { offset: [0, 4], blur: 16, spread: 0, color: Color32::from_black_alpha(if t.dark() { 90 } else { 30 }) };
     for w in [&mut v.widgets.noninteractive, &mut v.widgets.inactive, &mut v.widgets.hovered, &mut v.widgets.active, &mut v.widgets.open] {
         w.corner_radius = CornerRadius::same(t.radius);
@@ -760,5 +787,19 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn the_dark_appearance_is_the_house_theme() {
+        let t = Tokens::for_kind(ThemeKind::Dark);
+        let a = craft_tokens::color::ACCENT_BASE;
+        assert_eq!(t.accent, Color32::from_rgb(a.r, a.g, a.b));
+        let ink = craft_tokens::color::TEXT_INK;
+        assert_eq!(t.text, Color32::from_rgb(ink.r, ink.g, ink.b));
+        assert!(t.dark());
+        // Primary buttons stay readable on the light house accent.
+        assert!(contrast(t.on_accent, t.accent) >= 4.5, "{:.2}", contrast(t.on_accent, t.accent));
+        let light = Tokens::for_kind(ThemeKind::Light);
+        assert!(contrast(light.on_accent, light.accent) >= 4.5);
     }
 }
