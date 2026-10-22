@@ -36,9 +36,8 @@ pub const ALLOWED_LICENCES: &[&str] = &[
 ];
 
 /// The closed list of Adobe-authored, non-visual technical data (AGENTS.md §1.1): (crate, path).
-/// Storyteller's own brand marks (the ArtCraft name and logos): shipped in the app and docs, but
-/// not licensed for reuse by forks. Allowed only for `kind = "logo"` entries under `docs/brand/`
-/// (AGENTS.md §1.2).
+/// The upstream project's brand marks (the ArtCraft name and logos) are not licensed for reuse by
+/// forks, and this build carries none: their licence id is never accepted (AGENTS.md §1.2).
 pub const BRAND_LICENCE: &str = "LicenseRef-Storyteller-Trademark";
 
 pub const ADOBE_DATA_ALLOWED: &[(&str, &str)] = &[("hayro-cmap", "assets/cmaps.brotli"), ("hayro-interpret", "src/font/generated/metrics.rs")];
@@ -241,8 +240,9 @@ pub fn check(root: &Path, m: &Manifest, repo_files: &[String], lock: &BTreeSet<(
         if !seen.insert(a.path.clone()) {
             problems.push(format!("{}: listed twice", a.path));
         }
-        let brand = a.licence == BRAND_LICENCE && a.kind == "logo" && a.path.starts_with("docs/brand/");
-        if !brand {
+        if a.licence == BRAND_LICENCE {
+            problems.push(format!("{}: ArtCraft brand marks are not used in this fork (AGENTS.md §1.2)", a.path));
+        } else {
             licence_ok(&a.path, &a.licence, &mut problems);
         }
         if !root.join(&a.licence_file).is_file() {
@@ -488,7 +488,7 @@ mod tests {
             option: "CRAFT_FONTS_DIR".into(),
             title: "t".into(),
             author: "a".into(),
-            source: "https://github.com/storytold/craft-fonts".into(),
+            source: "https://github.com/685ks/craft-fonts".into(),
             licence: licence.into(),
             attribution: attribution.into(),
             kind: "font".into(),
@@ -550,18 +550,14 @@ mod tests {
     }
 
     #[test]
-    fn brand_licence_only_for_brand_logos() {
+    fn brand_licence_is_never_accepted() {
         let root = super::root();
-        for (path, kind, pass) in [
-            ("docs/brand/artcraft-mark.svg", "logo", true),
-            ("docs/brand/artcraft-mark.svg", "icon", false),
-            ("assets/icons/mark.svg", "logo", false),
-        ] {
-            let mut a = asset(path, "Storyteller", kind, BRAND_LICENCE);
-            a.licence_file = "docs/brand/LICENSE-brand.txt".into();
+        for (path, kind) in [("docs/brand/mark.svg", "logo"), ("docs/brand/mark.svg", "icon"), ("assets/icons/mark.svg", "logo")] {
+            let mut a = asset(path, "Upstream", kind, BRAND_LICENCE);
+            a.licence_file = "LICENSE-MIT".into();
             let m = Manifest { asset: vec![a], ..Default::default() };
             let p = check(&root, &m, &[], &BTreeSet::new());
-            assert_eq!(p.iter().all(|p| !p.contains("allowlist")), pass, "{path} {kind}: {p:?}");
+            assert!(p.iter().any(|p| p.contains("brand marks are not used")), "{path} {kind}: {p:?}");
         }
     }
 

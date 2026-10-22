@@ -11,6 +11,8 @@ workspace = true
 
 [dependencies]
 craft-ui = { workspace = true }
+# The house theme (Tokens::house, the dark appearance).
+craft-tokens = { workspace = true }
 # macOS: a window close quits through `terminate:` (the Touch Bar crash, #1136); elsewhere a no-op.
 craft-quit = { workspace = true, features = ["egui"] }
 pdfcraft-fonts = { workspace = true }

@@ -3,9 +3,9 @@ Copyright (c) 2026 ArtCraft Team and the PdfCraft contributors.
 Licensed under the MIT License or the Apache License, Version 2.0, at your option
 (LICENSE-MIT, LICENSE-APACHE).
 
-The ArtCraft name, wordmark and logos in docs/brand/ are trademarks of the ArtCraft Team. They are
-not open source and are not covered by the license above; their terms are in
-docs/brand/LICENSE-brand.txt.
+This distribution is a fork of storytold/pdfcraft (https://github.com/storytold/pdfcraft),
+maintained by Arthavan Projects. It is not affiliated with or endorsed by ArtCraft and does not
+include the ArtCraft name, wordmark or logos.
 
 Third-party material
 
@@ -20,10 +20,10 @@ list (author, source, license) is in ATTRIBUTION.md.
 - Inter typeface (assets/fonts/Inter-*.ttf) — SIL Open Font License 1.1. See assets/fonts/OFL-Inter.txt.
 - JetBrains Mono typeface (assets/fonts/JetBrainsMono-*.ttf) — SIL Open Font License 1.1. See assets/fonts/OFL-JetBrainsMono.txt.
 - Dancing Script typeface (assets/fonts/DancingScript.ttf), Copyright 2016 The Dancing Script Project Authors — SIL Open Font License 1.1 (Reserved Font Name "Dancing Script"). See assets/fonts/OFL-DancingScript.txt.
-- Fonts from craft-fonts (https://github.com/storytold/craft-fonts), an optional build input
+- Fonts from craft-fonts (https://github.com/685ks/craft-fonts), an optional build input
   (CRAFT_FONTS_DIR) that is not part of this repository. Builds made with it, which includes every
   official release, embed the fonts listed in
-  https://github.com/storytold/craft-fonts/blob/main/ATTRIBUTION.md (BIZ UDPGothic, Shippori Mincho,
+  https://github.com/685ks/craft-fonts/blob/main/ATTRIBUTION.md (BIZ UDPGothic, Shippori Mincho,
   BIZ UDMincho; the web build only BIZ UDPGothic Regular) under the SIL Open Font License 1.1. Those
   packages carry each font's licence as OFL-<family>.txt. Builds made with the craft-fonts revision
   pinned in .github/workflows/ also include Noto Sans Thai (in the web build too), Copyright 2022

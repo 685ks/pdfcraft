@@ -37,10 +37,10 @@ pub fn show(app: &mut PdfCraftApp, ui: &mut egui::Ui) {
                 .show(ui, |ui| {
                     ui.set_width(ui.available_width());
                     ui.horizontal(|ui| {
-                        widgets::artcraft_mark(ui, 28.0);
+                        widgets::app_icon(ui, 28.0);
                         ui.vertical(|ui| {
-                            ui.label(egui::RichText::new(tl!("Join the ArtCraft community")).font(theme::semibold(15.0)));
-                            ui.label(egui::RichText::new(tl!("Get help, share feedback and follow development on Discord.")).color(t.text_muted));
+                            ui.label(egui::RichText::new("PdfCraft").font(theme::semibold(15.0)));
+                            ui.label(egui::RichText::new(pdfcraft_engine::links::FORK_NOTE).color(t.text_muted));
                         });
                     });
                     ui.add_space(8.0);

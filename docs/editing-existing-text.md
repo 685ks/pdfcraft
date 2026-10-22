@@ -35,7 +35,7 @@ shares a single copy of it. Original subset bytes are
 preserved. Optional matching faces from `CRAFT_FONTS_DIR` can also complete source subsets;
 this works only when that build input actually contains the full face. This change does not
 add a font binary or change the release font pin. Fonts shared by releases belong in
-`storytold/craft-fonts` under the repository's asset rules.
+`685ks/craft-fonts` under the repository's asset rules.
 
 Rewrapped Chinese and Japanese text, which has no spaces between words, may break between any
 two characters. A row never begins with closing punctuation, a closing bracket or quote, a small

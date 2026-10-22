@@ -1,74 +1,67 @@
-//! Embeds the fonts of the optional craft-fonts build input (`CRAFT_FONTS_DIR`) as `CRAFT_FONTS`.
-//! The recipe is craft-fonts' `docs/integration.md`; unset, `CRAFT_FONTS` is empty. It only reads
-//! the local checkout (no network). On wasm32 it embeds only the UI faces (BIZ UDPGothic Regular
-//! and any `Arab`, `Telu`, `Hebr` or `Thai` face), to keep the web build within hosting limits (Cloudflare Pages:
-//! 25 MiB per file).
+//! Embeds the fonts of the optional craft-fonts build input (`CRAFT_FONTS_DIR`,
+//! <https://github.com/685ks/craft-fonts>) as `CRAFT_FONTS`, through the shared
+//! `craft-fonts-build` helper (legacy mode: `src/craft.rs` defines `CraftFont`). Unset,
+//! `CRAFT_FONTS` is empty; `CRAFT_FONTS_REQUIRED=1` turns a bad checkout into a build error. It
+//! only reads the local checkout (no network). On wasm32 it embeds only the UI faces (BIZ
+//! UDPGothic Regular and any `Arab`, `Telu`, `Hebr` or `Thai` face), to keep the web build within
+//! hosting limits (Cloudflare Pages: 25 MiB per file).
 
-use std::fmt::Write as _;
 use std::path::PathBuf;
 
-fn main() {
-    println!("cargo::rerun-if-env-changed=CRAFT_FONTS_DIR");
-    println!("cargo::rerun-if-env-changed=CRAFT_FONTS_REQUIRED");
-    let mut src = String::from("pub static CRAFT_FONTS: &[CraftFont] = &[\n");
-    if let Some(dir) = std::env::var_os("CRAFT_FONTS_DIR").map(PathBuf::from) {
-        match craft_fonts(&dir) {
-            Ok(entries) => src.push_str(&entries),
-            Err(e) if std::env::var_os("CRAFT_FONTS_REQUIRED").is_some() => {
-                println!("cargo::error=CRAFT_FONTS_DIR={}: {e}", dir.display());
-            }
-            Err(e) => println!("cargo::warning=building without craft-fonts: CRAFT_FONTS_DIR={}: {e}", dir.display()),
-        }
-    }
-    src.push_str("];\n");
-    let out = PathBuf::from(std::env::var_os("OUT_DIR").unwrap_or_default()).join("craft_fonts.rs");
-    if let Err(e) = std::fs::write(&out, src) {
-        println!("cargo::error=writing {}: {e}", out.display());
-    }
-}
+use craft_fonts_build::{Builder, DIR_ENV, Entry, REQUIRED_ENV};
 
 /// Family-name prefixes of the faces AGENTS.md §1.1 forbids: Adobe's Source families and Noto
 /// CJK, which is Source Han under another name. The test in `src/craft.rs` has the same list.
 const BARRED_FAMILIES: [&str; 5] = ["Source Han", "Source Serif", "Source Sans", "Noto Sans CJK", "Noto Serif CJK"];
 
-/// One `CraftFont { .. }` initialiser per manifest line.
-fn craft_fonts(dir: &std::path::Path) -> Result<String, String> {
-    let manifest = dir.join("fonts/manifest.txt");
-    println!("cargo::rerun-if-changed={}", manifest.display());
-    let text = std::fs::read_to_string(&manifest).map_err(|e| format!("{}: {e}", manifest.display()))?;
+/// Whether `e` is a barred family (never embedded, whatever its licence).
+fn barred(e: &Entry) -> bool {
+    BARRED_FAMILIES.iter().any(|b| e.family.starts_with(b))
+}
+
+/// The faces the web build keeps: the Japanese UI face and the small Arabic, Telugu, Hebrew and
+/// Thai interface faces.
+fn web_face(e: &Entry) -> bool {
+    let script = |s: &str| e.scripts.iter().any(|x| x == s);
+    (e.family == "BIZ UDPGothic" && e.style == "Regular") || ["Arab", "Telu", "Hebr", "Thai"].into_iter().any(script)
+}
+
+fn main() {
+    println!("cargo::rerun-if-env-changed={DIR_ENV}");
+    println!("cargo::rerun-if-env-changed={REQUIRED_ENV}");
+    let dir = std::env::var_os(DIR_ENV).filter(|d| !d.is_empty()).map(PathBuf::from);
+    let required = std::env::var_os(REQUIRED_ENV).is_some();
     let wasm = std::env::var("CARGO_CFG_TARGET_ARCH").is_ok_and(|a| a == "wasm32");
-    let mut out = String::new();
-    for line in text.lines().map(str::trim).filter(|l| !l.is_empty() && !l.starts_with('#')) {
-        let f: Vec<&str> = line.split(" | ").map(str::trim).collect();
-        let [family, style, file, scripts, ..] = f.as_slice() else {
-            return Err(format!("malformed manifest line: {line}"));
-        };
-        // AGENTS.md §1.1 bars Adobe's type designs whatever their licence, so a checkout that
-        // carries one (craft-fonts has Noto Sans CJK, which is Source Han) never embeds it.
-        if BARRED_FAMILIES.iter().any(|barred| family.starts_with(barred)) {
-            println!("cargo::warning=craft-fonts: not embedding {family} {style} (AGENTS.md §1.1)");
-            continue;
+    // The web selection is by script, so it is made here, with the target passed as native.
+    let builder = Builder::new().legacy(true).include(move |e| {
+        if barred(e) {
+            println!("cargo::warning=craft-fonts: not embedding {} {} (AGENTS.md §1.1)", e.family, e.style);
+            return false;
         }
-        // Arabic interface faces are small, so the web build keeps them too.
-        let arabic = scripts.split(',').any(|s| s.trim() == "Arab");
-        // Telugu faces too, for the Telugu interface.
-        let telugu = scripts.split(',').any(|s| s.trim() == "Telu");
-        // And the Hebrew ones (small), for Hebrew text and Edit text on the web.
-        let hebrew = scripts.split(',').any(|s| s.trim() == "Hebr");
-        let web_face =
-            (*family == "BIZ UDPGothic" && *style == "Regular") || arabic || telugu || hebrew || scripts.split(',').any(|s| s.trim() == "Thai");
-        if wasm && !web_face {
-            continue;
+        !wasm || web_face(e)
+    });
+    let mut rerun = Vec::new();
+    let src = match builder.generate(dir.as_deref(), false, &mut rerun) {
+        Ok(src) => src,
+        Err(e) => {
+            let shown = dir.as_deref().map(|d| d.display().to_string()).unwrap_or_default();
+            if required {
+                println!("cargo::error={DIR_ENV}={shown}: {e}");
+            } else {
+                println!("cargo::warning=building without craft-fonts: {DIR_ENV}={shown}: {e}");
+            }
+            builder.generate(None, false, &mut Vec::new()).unwrap_or_else(|_| "pub static CRAFT_FONTS: &[CraftFont] = &[];\n".into())
         }
-        let path = dir.join(file).canonicalize().map_err(|e| format!("{file}: {e}"))?;
+    };
+    for path in rerun {
         println!("cargo::rerun-if-changed={}", path.display());
-        let scripts: Vec<String> = scripts.split(',').map(|s| format!("{:?}", s.trim())).collect();
-        let _ = writeln!(
-            out,
-            "    CraftFont {{ family: {family:?}, style: {style:?}, scripts: &[{}], bytes: include_bytes!({:?}) }},",
-            scripts.join(", "),
-            path.display().to_string(),
-        );
     }
-    Ok(out)
+    let out = PathBuf::from(std::env::var_os("OUT_DIR").unwrap_or_default()).join("craft_fonts.rs");
+    // Unchanged output keeps its mtime, so an unchanged build does not recompile this crate.
+    if std::fs::read_to_string(&out).is_ok_and(|old| old == src) {
+        return;
+    }
+    if let Err(e) = std::fs::write(&out, src) {
+        println!("cargo::error=writing {}: {e}", out.display());
+    }
 }

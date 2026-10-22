@@ -556,6 +556,9 @@ pub struct PdfCraftApp {
     pub dialog: Option<Dialog>,
     /// How to ask for the latest release (the desktop app sets it; see `updates`).
     pub update_source: Option<updates::UpdateSource>,
+    /// The Arthavan Projects launcher started the app (`ARTHAVAN_LAUNCHER=1`): it installs
+    /// updates, so Check for updates says so instead of asking GitHub.
+    pub launcher_managed: bool,
     pub(crate) updates: updates::Updates,
     /// Lists the Print dialog's printers in the background (the desktop app sets it; see
     /// [`PrinterSource`]).
@@ -929,6 +932,7 @@ impl PdfCraftApp {
             fill_text_size: fill_sign::TEXT_SIZE,
             dialog: None,
             update_source: None,
+            launcher_managed: pdfcraft_engine::links::launched_by_launcher(),
             updates: updates::Updates::default(),
             printer_source: None,
             print_tasks: print_ui::PrintTasks::default(),

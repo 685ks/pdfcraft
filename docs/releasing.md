@@ -1,12 +1,17 @@
 # Releasing PdfCraft
 
-Every push to the `release` branch runs `.github/workflows/release.yml`. It builds installers for
-macOS, Windows, Linux, FreeBSD and the web, signs the ones it has certificates for, and creates or
-updates a **draft** GitHub Release named `PdfCraft v<version>`. Nobody sees a draft until a
-maintainer publishes it.
+Releases are built by the shared Arthavan Projects release workflow,
+[`685ks/craft-actions`](https://github.com/685ks/craft-actions) (`release-rust-app.yml`), which
+`.github/workflows/release.yml` calls. It builds and packages PdfCraft for macOS, Windows and Linux
+and creates the GitHub Release `v<version>` on this repository, as a draft unless `publish` is set.
+The Arthavan Projects launcher installs and updates PdfCraft from these releases; started by it
+(`ARTHAVAN_LAUNCHER=1`), PdfCraft runs no update check of its own, and About and *Help ▸ Check for
+updates* say "Updates are managed by Arthavan Projects".
 
-The pipeline was ported from PhotoCraft's. User-facing names say **PdfCraft**; files, binaries and
-ids stay lowercase (`pdfcraft-<version>-<platform>-<arch>.<ext>`, `ai.storyteller.pdfcraft`).
+User-facing names say **PdfCraft**; files and binaries stay lowercase
+(`pdfcraft-<version>-<platform>-<arch>.<ext>`), and the bundle id is `app.freedev.ainz.ks.PdfCraft`.
+The ids, publisher (Arthavan Projects), categories and icons the workflow reads are in
+[`packaging/app.toml`](../packaging/app.toml).
 
 ## Cutting a release
 
@@ -18,27 +23,13 @@ ids stay lowercase (`pdfcraft-<version>-<platform>-<arch>.<ext>`, `ai.storytelle
    cargo xtask version set 0.3.0       # or 0.3.0-rc.1; updates Cargo.toml and Cargo.lock
    ```
 
-   Commit the change through the normal review flow (see the `Release: PdfCraft v0.2.1` PR).
-2. **Merge `main` into `release`** (or fast-forward it) and push. The workflow starts by itself.
-3. **Wait for the draft.** When every job has finished (notarization is the slow part), the
-   Releases page has a draft `PdfCraft v0.3.0` targeting the pushed commit, with every artifact
-   and `SHA256SUMS.txt`. The notes are generated from the merged PRs.
-4. **Check it.** Download an installer or two and read the job summaries. A `::warning::` there
-   means a signing secret was missing and that artifact is unsigned.
-5. **Publish** the draft in the GitHub UI. Publishing creates the `v0.3.0` tag. Versions with a
-   pre-release suffix (`-rc.1`) are marked as pre-releases.
+   Commit the change through the normal review flow.
+2. **Run the workflow:** *Actions ▸ Release ▸ Run workflow*, with `version` (no leading `v`), and
+   `publish` / `prerelease` as wanted. Without `publish` the release stays a draft.
+3. **Check the draft** (download an installer or two), then publish it in the GitHub UI.
 
-Pushing to `release` again before you publish rebuilds the same draft and replaces its assets.
-Once the draft is published, the workflow refuses to touch that version again, so bump it first.
-
-**Test runs:** *Actions ▸ Release ▸ Run workflow* runs the whole pipeline by hand. The optional
-`version` input (such as `0.3.0-rc.1`) overrides `Cargo.toml` for that run only; each job applies it
-with `cargo xtask version set` before building, so the binaries report it too. The signing jobs
-(macOS, Windows) and the draft-release job use the `release` environment, so pick the `release`
-branch in the dialog for a full run. On any other branch the same dispatch is a **dry run**: the
-Linux, Flatpak, FreeBSD and web jobs build and check everything, the signing jobs are refused by the
-environment's branch rule, and the draft-release job (which needs them) is skipped, so nothing is
-published (`gh workflow run release.yml --ref <branch>`).
+The packaging scripts below (`packaging/`) and their notes come from the upstream pipeline; they
+still build the same packages locally and document what each one contains.
 
 ## What gets built
 
@@ -57,14 +48,14 @@ published (`gh workflow run release.yml --ref <branch>`).
 | Web | `pdfcraft-web-<v>.zip` (a static site; see [`packaging/web/README.md`](../packaging/web/README.md)) | `ubuntu-latest` |
 
 The ARM64 Windows build is cross-compiled on the x64 runner, so signing and WiX work as for the
-other Windows builds; `.github/workflows/windows-arm64.yml` installs and runs it on ARM64 hardware.
+other Windows builds.
 
 Every binary reports its version (`pdfcraft --version`, `pdfcraft-cli --version`, *Help ▸ About*).
 The workflow sets `PDFCRAFT_BUILD_SHA` and `PDFCRAFT_BUILD_DATE` (`packaging/env.sh` fills them in
 for local builds): the commit is recorded in the macOS `Info.plist` (`PdfCraftBuildCommit`) and the
 date in the AppStream metadata. The binaries don't embed the commit yet.
 
-**Fonts:** every job checks out [craft-fonts](https://github.com/storytold/craft-fonts) at the commit
+**Fonts:** every job checks out [craft-fonts](https://github.com/685ks/craft-fonts) at the commit
 pinned in `release.yml` and builds with `CRAFT_FONTS_DIR` and `CRAFT_FONTS_REQUIRED=1`, so releases
 embed its Japanese fonts and fail rather than ship without them (`AGENTS.md` §1.4). Bump the pin
 deliberately.
@@ -80,7 +71,7 @@ and an `ATTRIBUTION.txt`, straight into the package, so packaging needs the netw
 ### macOS
 
 `packaging/macos/package.sh` builds both architectures, joins them with `lipo`, and assembles
-`PdfCraft.app` from `Info.plist.in` (bundle id `ai.storyteller.pdfcraft`, macOS 11+, PDF declared
+`PdfCraft.app` from `Info.plist.in` (bundle id `app.freedev.ainz.ks.PdfCraft`, macOS 11+, PDF declared
 as a document type with rank Alternate, so PdfCraft is offered under Open With without taking over
 from Preview). Files opened from Finder arrive as Apple events, which
 `apps/pdfcraft/src/apple_events.rs` receives.
@@ -177,9 +168,9 @@ downloading only the changed blocks. `latest` is the newest published, non-pre-r
 otherwise; the release job checks both.
 
 **Flatpak:** the `flatpak` job turns each arch's tarball into a single-file bundle with
-`packaging/linux/flatpak-bundle.sh` and `flatpak/ai.storyteller.pdfcraft.bundle.yml` (no Rust build;
+`packaging/linux/flatpak-bundle.sh` and `flatpak/app.freedev.ainz.ks.PdfCraft.bundle.yml` (no Rust build;
 the same binaries), then installs it and runs `pdfcraft-cli --version` in the sandbox.
-`flatpak/ai.storyteller.pdfcraft.yml` is the from-source manifest for a later Flathub submission;
+`flatpak/app.freedev.ainz.ks.PdfCraft.yml` is the from-source manifest for a later Flathub submission;
 packaging-lint keeps the runtime and sandbox permissions (`finish-args`) of the two identical.
 Printing is not available in the Flatpak yet: it runs `lp`, which the freedesktop runtime lacks
 (the job logs a note); it needs the print portal. Users install the bundle with `flatpak install --user pdfcraft-<v>-linux-<arch>.flatpak`; the

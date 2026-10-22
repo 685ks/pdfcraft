@@ -2,7 +2,9 @@
 //!
 //! **Opt-in only.** Nothing here runs unless the app is started with `--control <file>` (or a
 //! test attaches a [`ControlClient`]). The transport ([`serve`]) listens on loopback only, on a
-//! random port, and every connection must first present the random token written to `<file>`.
+//! random port, and every connection must first present the random token written to `<file>`
+//! (32 random bytes as 64 hex digits, new each launch; the file is readable by its owner only).
+//! After that, request lines are capped at 16 MiB.
 //!
 //! How it works:
 //! - [`ControlPlugin`], an egui plugin, keeps a copy of the AccessKit tree from every frame's
@@ -811,6 +813,8 @@ struct Limits {
     /// its place among [`Self::max_unauthenticated`], so this is what bounds their threads;
     /// beyond it a refused connection is closed at once.
     max_lingering: usize,
+    /// Longest request line after authentication ([`MAX_REQUEST_LINE`]).
+    max_request_line: usize,
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -820,6 +824,7 @@ const LIMITS: Limits = Limits {
     write_timeout: std::time::Duration::from_secs(30),
     linger: std::time::Duration::from_secs(1),
     max_lingering: 8,
+    max_request_line: MAX_REQUEST_LINE,
 };
 
 /// One of a limited number of places, given back when dropped: a place among
@@ -948,9 +953,10 @@ fn serve_with(client: ControlClient, limits: Limits) -> std::io::Result<Endpoint
                 let mut reader = BufReader::new(Reading { stream: read, until: Some(std::time::Instant::now() + limits.auth_deadline) });
                 let mut buf = Vec::new();
                 loop {
-                    // Until `auth` succeeds, lines are capped at MAX_AUTH_LINE; afterwards they
-                    // are read whole, as before.
-                    let max = if authed { usize::MAX } else { MAX_AUTH_LINE };
+                    // Until `auth` succeeds, lines are capped at MAX_AUTH_LINE; afterwards at
+                    // MAX_REQUEST_LINE, so even an authenticated client can't make the app buffer
+                    // an endless line.
+                    let max = if authed { limits.max_request_line } else { MAX_AUTH_LINE };
                     match read_line_limited(&mut reader, &mut buf, max) {
                         Ok(LineRead::Line) => {}
                         // The deadline passed before `auth`: say so and close.
@@ -965,8 +971,10 @@ fn serve_with(client: ControlClient, limits: Limits) -> std::io::Result<Endpoint
                         }
                         // End of stream or a failed read ends the connection, as before.
                         Ok(LineRead::End) | Err(_) => break,
+                        // Refused, and the connection closed: the rest of the line is not read.
                         Ok(LineRead::TooLong) => {
-                            let e = rpc_error(Value::Null, -32600, &format!("request line longer than {max} bytes before auth"));
+                            let when = if authed { "" } else { " before auth" };
+                            let e = rpc_error(Value::Null, -32600, &format!("request line longer than {max} bytes{when}"));
                             let place = refuse(&mut slot, &lingering, limits);
                             if writeln!(write, "{e}").and_then(|_| write.flush()).is_ok() {
                                 close_after_reply(reader.get_mut(), place, limits.linger);
@@ -1025,6 +1033,12 @@ fn serve_with(client: ControlClient, limits: Limits) -> std::io::Result<Endpoint
     Ok(Endpoint { port, token })
 }
 
+/// Longest request line read after a connection has authenticated (16 MiB). Requests are
+/// small JSON (commands and their parameters); anything longer is refused and the connection
+/// closed, instead of growing the buffer without end.
+#[cfg(not(target_arch = "wasm32"))]
+const MAX_REQUEST_LINE: usize = 16 << 20;
+
 /// Longest line read before a connection has authenticated. The only acceptable request then is
 /// `auth`, about a hundred bytes; a longer line is refused without buffering the rest of it.
 #[cfg(not(target_arch = "wasm32"))]
@@ -1076,7 +1090,8 @@ fn constant_time_eq(a: &str, b: &str) -> bool {
 /// 128 random bits from the OS, hex-encoded.
 #[cfg(not(target_arch = "wasm32"))]
 fn random_token() -> std::io::Result<String> {
-    let mut bytes = [0u8; 16];
+    // 32 random bytes: 64 hex digits.
+    let mut bytes = [0u8; 32];
     getrandom::fill(&mut bytes).map_err(|e| std::io::Error::other(e.to_string()))?;
     Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
 }
@@ -1161,6 +1176,7 @@ mod transport_tests {
         write_timeout: std::time::Duration::from_secs(5),
         linger: std::time::Duration::from_secs(1),
         max_lingering: 2,
+        max_request_line: 64 * 1024,
     };
 
     /// The next line the server sends, as JSON, or `None` when it closed the connection instead.
@@ -1236,6 +1252,37 @@ mod transport_tests {
         let mut r = BufReader::new(s);
         let reply = next_line(&mut r).expect("the server says why before closing");
         assert_eq!(reply["error"]["code"], -32600, "{reply}");
+    }
+
+    /// After `auth`, request lines are capped too: an endless line is refused with a reason and
+    /// the connection closed, instead of being buffered without end.
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn an_authenticated_client_cannot_send_an_endless_line() {
+        use std::io::{BufReader, Write};
+        let (_control, client) = super::attach(&egui::Context::default());
+        let ep = super::serve_with(client, TEST_LIMITS).unwrap();
+        let s = connect(ep.port);
+        let mut w = s.try_clone().unwrap();
+        let mut r = BufReader::new(s);
+        writeln!(w, "{}", serde_json::json!({"id": 1, "method": "auth", "params": {"token": ep.token}})).unwrap();
+        assert_eq!(next_line(&mut r).unwrap()["result"]["ok"], true);
+        w.write_all(&vec![b'x'; 2 * TEST_LIMITS.max_request_line]).unwrap();
+        let reply = next_line(&mut r).expect("the server says why before closing");
+        assert_eq!(reply["error"]["code"], -32600, "{reply}");
+        assert!(reply["error"]["message"].as_str().unwrap().contains("longer than"), "{reply}");
+        assert!(next_line(&mut r).is_none(), "then the connection is closed");
+    }
+
+    /// The token is 32 random bytes, written as 64 hex digits, and differs between launches.
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn the_token_is_64_hex_digits() {
+        let a = super::random_token().unwrap();
+        let b = super::random_token().unwrap();
+        assert_eq!(a.len(), 64);
+        assert!(a.bytes().all(|c| c.is_ascii_hexdigit()), "{a}");
+        assert_ne!(a, b);
     }
 
     /// A refused connection gives back its place among those waiting to authenticate before it

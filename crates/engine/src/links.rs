@@ -1,16 +1,38 @@
-//! Where PdfCraft and the ArtCraft community live on the web. One table, so the Help menu, the
-//! About dialog, the home screen, the CLI and the README agree.
+//! Where PdfCraft lives on the web. One table, so the Help menu, the About dialog, the home
+//! screen, the CLI and the README agree.
+//!
+//! This build is Arthavan Projects' fork of `storytold/pdfcraft`. It is not affiliated with or
+//! endorsed by ArtCraft, and it links only to its own repository.
 
 use icu_properties::props::Script;
 use std::path::{Path, PathBuf};
 
-/// The app's name in ArtCraft URLs (`getartcraft.com/apps/{APP}`, `github.com/storytold/{APP}`).
+/// The app's name in its repository URL (`github.com/685ks/{APP}`).
 pub const APP: &str = "pdfcraft";
 
-pub const DISCORD: &str = "https://discord.gg/artcraft";
-pub const WEBSITE: &str = "https://getartcraft.com";
-pub const APP_PAGE: &str = "https://getartcraft.com/apps/pdfcraft";
-pub const GITHUB: &str = "https://github.com/storytold/pdfcraft";
+pub const GITHUB: &str = "https://github.com/685ks/pdfcraft";
+pub const ISSUES: &str = "https://github.com/685ks/pdfcraft/issues";
+pub const RELEASES: &str = "https://github.com/685ks/pdfcraft/releases";
+/// The project this one is forked from (credited in About; never contacted).
+pub const UPSTREAM: &str = "https://github.com/storytold/pdfcraft";
+/// One line for About, the README and the CLI's `--version`.
+pub const FORK_NOTE: &str = "A fork of storytold/pdfcraft, maintained by Arthavan Projects. Not affiliated with or endorsed by ArtCraft.";
+
+/// Set to `1` by the Arthavan Projects launcher on the apps it starts.
+pub const LAUNCHER_ENV: &str = "ARTHAVAN_LAUNCHER";
+/// What About (and Help ▸ Check for updates) says when the launcher started the app: the
+/// launcher installs updates, so the app does not check for them itself.
+pub const UPDATES_BY_LAUNCHER: &str = "Updates are managed by Arthavan Projects";
+
+/// True when the Arthavan Projects launcher started this process.
+pub fn launched_by_launcher() -> bool {
+    launcher_flag(std::env::var(LAUNCHER_ENV).ok().as_deref())
+}
+
+/// [`launched_by_launcher`] for a given value of [`LAUNCHER_ENV`]: exactly `1`.
+pub fn launcher_flag(value: Option<&str>) -> bool {
+    value.is_some_and(|v| v.trim() == "1")
+}
 
 /// A link and the registry command that opens it.
 #[derive(Clone, Copy, Debug)]
@@ -22,13 +44,8 @@ pub struct Link {
     pub icon: &'static str,
 }
 
-/// In the order they are shown. Discord comes first: it is where people get help fastest.
-pub const LINKS: &[Link] = &[
-    Link { command: "help.discord", label: "Join the ArtCraft Discord", url: DISCORD, icon: "messages-square" },
-    Link { command: "help.app_page", label: "PdfCraft web page", url: APP_PAGE, icon: "globe" },
-    Link { command: "help.github", label: "PdfCraft on GitHub", url: GITHUB, icon: "code-xml" },
-    Link { command: "help.website", label: "ArtCraft website", url: WEBSITE, icon: "external-link" },
-];
+/// In the order they are shown.
+pub const LINKS: &[Link] = &[Link { command: "help.github", label: "PdfCraft on GitHub", url: GITHUB, icon: "code-xml" }];
 
 pub fn for_command(id: &str) -> Option<&'static Link> {
     LINKS.iter().find(|l| l.command == id)
@@ -554,13 +571,27 @@ mod tests {
     }
 
     #[test]
-    fn urls_follow_the_artcraft_scheme() {
-        assert_eq!(super::APP_PAGE, format!("{}/apps/{}", super::WEBSITE, super::APP));
-        assert_eq!(super::GITHUB, format!("https://github.com/storytold/{}", super::APP));
+    fn links_stay_on_the_fork() {
+        assert_eq!(super::GITHUB, format!("https://github.com/685ks/{}", super::APP));
+        for link in [super::GITHUB, super::ISSUES, super::RELEASES] {
+            assert!(link.starts_with("https://github.com/685ks/pdfcraft"), "{link}");
+        }
         for l in super::LINKS {
-            assert!(l.url.starts_with("https://"), "{}", l.url);
+            assert!(l.url.starts_with("https://github.com/685ks/"), "{}", l.url);
             assert!(crate::commands::command(l.command).is_some(), "{} is a registered command", l.command);
         }
+    }
+
+    #[test]
+    fn the_launcher_flag_is_exactly_one() {
+        use super::launcher_flag;
+        assert!(launcher_flag(Some("1")));
+        assert!(launcher_flag(Some(" 1\n")));
+        assert!(!launcher_flag(Some("0")));
+        assert!(!launcher_flag(Some("")));
+        assert!(!launcher_flag(Some("yes")));
+        assert!(!launcher_flag(None));
+        assert_eq!(super::UPDATES_BY_LAUNCHER, "Updates are managed by Arthavan Projects");
     }
 
     #[test]
