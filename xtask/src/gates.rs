@@ -507,7 +507,7 @@ fn f1(a: &BTreeMap<String, usize>, b: &BTreeMap<String, usize>) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{f1, order_score, root, word_sequence, words};
+    use super::{f1, order_score, word_sequence, words};
 
     /// The two scores answer different questions, and the point of adding the second one is the
     /// first row: F1 cannot tell a page from the same page read backwards.
@@ -542,49 +542,5 @@ mod tests {
         let long: Vec<String> = (0..super::MAX_ORDER_WORDS + 10).map(|i| i.to_string()).collect();
         let (s, cut) = order_score(&long, &long);
         assert!((s - 1.0).abs() < 1e-9 && cut, "{s} {cut}");
-    }
-
-    // Issue #211: Finder lists the app under Open With > Recommended only when the
-    // bundle claims PDFs by UTI (#176).
-    #[test]
-    fn macos_bundle_claims_pdf_by_uti() {
-        let pdf = pdf_document_type();
-        assert!(pdf.contains("<string>com.adobe.pdf</string>"), "claim PDFs by UTI, not just extension/MIME");
-        assert!(pdf.contains("<string>Editor</string>"), "PDF role stays Editor");
-        assert!(pdf.contains("<string>Alternate</string>"), "rank stays Alternate: offered without taking over Preview");
-        assert!(pdf.contains("<key>CFBundleTypeIconFile</key>"), "declares document icon file for Finder");
-    }
-
-    // The bundle id must match the app id the binary uses; renames change both (#174).
-    #[test]
-    fn macos_bundle_id_matches_app_id() {
-        assert!(read("packaging/macos/Info.plist.in").contains("<string>app.freedev.ainz.ks.PdfCraft</string>"), "bundle id");
-        let main = read("apps/pdfcraft/src/main.rs");
-        assert!(main.contains(r#"const APP_ID: &str = "app.freedev.ainz.ks.PdfCraft""#), "APP_ID drifted from the bundle id");
-    }
-
-    // Committed file with `<!-- -->` comments stripped, so a commented-out claim cannot pass.
-    fn read(rel: &str) -> String {
-        let text = std::fs::read_to_string(root().join(rel)).expect("committed file");
-        let mut out = String::with_capacity(text.len());
-        let mut rest = text.as_str();
-        while let Some(i) = rest.find("<!--") {
-            out.push_str(&rest[..i]);
-            rest = rest[i..].find("-->").map_or("", |j| &rest[i + j + 3..]);
-        }
-        out.push_str(rest);
-        out
-    }
-
-    // The `<dict>` inside `CFBundleDocumentTypes` that mentions the PDF UTI: scoped so a
-    // UTI string anywhere else cannot satisfy the asserts above.
-    fn pdf_document_type() -> String {
-        let plist = read("packaging/macos/Info.plist.in");
-        let docs = plist.split("<key>CFBundleDocumentTypes</key>").nth(1).expect("CFBundleDocumentTypes");
-        docs.split("<dict>")
-            .map(|chunk| chunk.split("</dict>").next().unwrap_or(""))
-            .find(|chunk| chunk.contains("com.adobe.pdf"))
-            .expect("a document type for com.adobe.pdf")
-            .to_string()
     }
 }

@@ -2,7 +2,7 @@
 
 Releases are built by the shared Arthavan Projects release workflow,
 [`685ks/craft-actions`](https://github.com/685ks/craft-actions) (`release-rust-app.yml`), which
-`.github/workflows/release.yml` calls. It builds and packages PdfCraft for macOS, Windows and Linux
+`.github/workflows/release.yml` calls. It builds and packages PdfCraft for Windows
 and creates the GitHub Release `v<version>` on this repository, as a draft unless `publish` is set.
 The Arthavan Projects launcher installs and updates PdfCraft from these releases; started by it
 (`ARTHAVAN_LAUNCHER=1`), PdfCraft runs no update check of its own, and About and *Help ▸ Check for
@@ -35,16 +35,9 @@ still build the same packages locally and document what each one contains.
 
 | Platform | Artifacts | Built on |
 |---|---|---|
-| macOS 11+ (universal: Apple silicon + Intel) | `pdfcraft-<v>-macos-universal.dmg`, `pdfcraft-cli-<v>-macos-universal.zip` | `macos-15` |
 | Windows 10+ x64 | `pdfcraft-<v>-windows-x64.msi`, `pdfcraft-<v>-windows-x64-portable.zip` | `windows-latest` |
 | Windows 10+ x86 (32-bit) | `pdfcraft-<v>-windows-x86.msi`, `pdfcraft-<v>-windows-x86-portable.zip` | `windows-latest` |
 | Windows 11 on ARM64 | `pdfcraft-<v>-windows-arm64.msi`, `pdfcraft-<v>-windows-arm64-portable.zip` | `windows-latest` (cross-compiled) |
-| Linux x86_64 | `pdfcraft-<v>-linux-x86_64.{AppImage,AppImage.zsync,deb,rpm,tar.gz}`, `pdfcraft-cli-<v>-linux-x86_64.tar.gz` | `ubuntu-22.04` |
-| Linux aarch64 | `pdfcraft-<v>-linux-aarch64.{AppImage,AppImage.zsync,deb,rpm,tar.gz}`, `pdfcraft-cli-<v>-linux-aarch64.tar.gz` | `ubuntu-22.04-arm` |
-| Linux riscv64 | `pdfcraft-<v>-linux-riscv64.tar.gz`, `pdfcraft-cli-<v>-linux-riscv64.tar.gz` (glibc 2.39+) | `ubuntu-24.04` (cross-compiled; CLI smoke-tested under QEMU) |
-| Flatpak x86_64 | `pdfcraft-<v>-linux-x86_64.flatpak` | `ubuntu-24.04` (repackages the Linux tarball) |
-| Flatpak aarch64 | `pdfcraft-<v>-linux-aarch64.flatpak` | `ubuntu-24.04-arm` (repackages the Linux tarball) |
-| FreeBSD 14 x86_64 | `pdfcraft-<v>-freebsd-x86_64.tar.gz` | FreeBSD VM on `ubuntu-latest` |
 | Web | `pdfcraft-web-<v>.zip` (a static site; see [`packaging/web/README.md`](../packaging/web/README.md)) | `ubuntu-latest` |
 
 The ARM64 Windows build is cross-compiled on the x64 runner, so signing and WiX work as for the
@@ -52,8 +45,7 @@ other Windows builds.
 
 Every binary reports its version (`pdfcraft --version`, `pdfcraft-cli --version`, *Help ▸ About*).
 The workflow sets `PDFCRAFT_BUILD_SHA` and `PDFCRAFT_BUILD_DATE` (`packaging/env.sh` fills them in
-for local builds): the commit is recorded in the macOS `Info.plist` (`PdfCraftBuildCommit`) and the
-date in the AppStream metadata. The binaries don't embed the commit yet.
+for local builds). The binaries don't embed the commit yet.
 
 **Fonts:** every job checks out [craft-fonts](https://github.com/685ks/craft-fonts) at the commit
 pinned in `release.yml` and builds with `CRAFT_FONTS_DIR` and `CRAFT_FONTS_REQUIRED=1`, so releases
@@ -64,35 +56,7 @@ deliberately.
 `stage_models` (`packaging/env.sh`; `package.ps1` on Windows), which runs `cargo xtask models` to
 fetch every `kind = "model"` file in `ATTRIBUTION.toml` (verified by SHA-256) with its licence text
 and an `ATTRIBUTION.txt`, straight into the package, so packaging needs the network. They go where
-`pdfcraft_ocr::Models::dirs_beside_exe` looks: `models\` beside `pdfcraft.exe` (MSI, portable zip),
-`PdfCraft.app/Contents/Resources/models` (macOS), and `share/pdfcraft/models` beside `bin/`
-(deb, rpm, tar.gz, AppImage, Flatpak, FreeBSD). The web build doesn't include them yet.
-
-### macOS
-
-`packaging/macos/package.sh` builds both architectures, joins them with `lipo`, and assembles
-`PdfCraft.app` from `Info.plist.in` (bundle id `app.freedev.ainz.ks.PdfCraft`, macOS 11+, PDF declared
-as a document type with rank Alternate, so PdfCraft is offered under Open With without taking over
-from Preview). Files opened from Finder arrive as Apple events, which
-`apps/pdfcraft/src/apple_events.rs` receives.
-
-- **Signing** uses the hardened runtime and a secure timestamp, executable first, then the bundle.
-  `packaging/macos/import-cert.sh` puts the certificate in a temporary keychain, deleted at the end
-  of the job.
-- **Notarization:** the app is zipped and sent with `xcrun notarytool submit --wait`, the ticket is
-  stapled, and the result is checked with `codesign --verify`, `stapler validate` and `spctl`. The
-  app ships on a drag-to-Applications DMG, which is signed and notarized too.
-  Its Finder window (background, icon size and positions) comes from
-  [`packaging/macos/dmg/`](../packaging/macos/dmg/README.md), and its volume is named `PdfCraft`
-  without the version, which the window's background needs; the DMG file name keeps the version.
-- **CLI:** `pdfcraft-cli` is signed and notarized as a zip. A bare executable can't hold a stapled
-  ticket, so Gatekeeper looks it up online the first time a downloaded copy runs.
-
-Without certificates (locally) the script signs ad-hoc and skips notarization:
-
-```sh
-packaging/macos/package.sh --arch aarch64     # quicker, host-only; --arch universal needs both targets
-```
+`pdfcraft_ocr::Models::dirs_beside_exe` looks: `models\` beside `pdfcraft.exe` (MSI, portable zip). The web build doesn't include them yet.
 
 ### Windows
 
@@ -146,46 +110,6 @@ neither the MSI nor the portable zip needs the Visual C++ redistributable.
 
 Locally: `dotnet tool install -g wix --version 5.0.2`, then `pwsh packaging/windows/package.ps1 -Arch x64`.
 
-### Linux
-
-`packaging/linux/package.sh` stages one FHS tree (both binaries, the desktop entry, hicolor icons,
-AppStream metainfo) and makes every format from it: an **AppImage** (any distribution, nothing to
-install), a **.deb** and an **.rpm** (built with [nfpm](https://nfpm.goreleaser.com) from
-`nfpm.yaml`; they integrate with the menu, MIME and icon caches), a **.tar.gz**, and a CLI-only
-**`pdfcraft-cli-<v>-linux-<arch>.tar.gz`** (the stripped `pdfcraft-cli` plus the licences and
-README, for servers, CI and agent sandboxes). `--formats` picks a subset (`appimage deb rpm tar cli`).
-
-The binaries are built on Ubuntu 22.04, the oldest GitHub-hosted image, so they need only
-**glibc ≥ 2.35**: Ubuntu 22.04+, Debian 12+, Fedora 36+, RHEL 10. Windowing (X11, Wayland,
-xkbcommon) and the GPU (Vulkan, EGL) are loaded at runtime from the system; the .deb and .rpm declare
-them as dependencies (see `nfpm.yaml`).
-
-Each AppImage embeds update information
-(`gh-releases-zsync|storytold|pdfcraft|latest|pdfcraft-*-linux-<arch>.AppImage.zsync`), and its
-`.zsync` is published beside it, so AppImageUpdate and AppImageLauncher can update it in place,
-downloading only the changed blocks. `latest` is the newest published, non-pre-release version.
-`package.sh` writes the `.zsync` when `zsyncmake` (the `zsync` package) is installed and warns
-otherwise; the release job checks both.
-
-**Flatpak:** the `flatpak` job turns each arch's tarball into a single-file bundle with
-`packaging/linux/flatpak-bundle.sh` and `flatpak/app.freedev.ainz.ks.PdfCraft.bundle.yml` (no Rust build;
-the same binaries), then installs it and runs `pdfcraft-cli --version` in the sandbox.
-`flatpak/app.freedev.ainz.ks.PdfCraft.yml` is the from-source manifest for a later Flathub submission;
-packaging-lint keeps the runtime and sandbox permissions (`finish-args`) of the two identical.
-Printing is not available in the Flatpak yet: it runs `lp`, which the freedesktop runtime lacks
-(the job logs a note); it needs the print portal. Users install the bundle with `flatpak install --user pdfcraft-<v>-linux-<arch>.flatpak`; the
-freedesktop runtime comes from Flathub.
-
-Locally (on Linux, with nfpm): `packaging/linux/package.sh` or `--formats "deb tar"`; then
-`packaging/linux/flatpak-bundle.sh` for the Flatpak.
-
-### FreeBSD
-
-GitHub has no FreeBSD runners, so the `freebsd` job runs `packaging/freebsd/package.sh` in a FreeBSD
-VM with the packages from `.github/workflows/freebsd.yml`. The tarball is a `/usr/local`-style tree
-with the same desktop entry, metainfo and icons as Linux. FreeBSD has no code signing for loose
-binaries; check the tarball against `SHA256SUMS.txt`.
-
 ### Web
 
 `packaging/web/package.sh` runs `trunk build --release` in `apps/pdfcraft-web` and zips the site
@@ -213,8 +137,8 @@ unsigned and the run shows a warning.
 ## Checks
 
 `.github/workflows/packaging-lint.yml` runs on changes to `packaging/` and the workflows: actionlint, shellcheck,
-a PowerShell parse, xmllint (WiX, plist, MIME), `desktop-file-validate`, `appstreamcli validate`, and
-the MSI icon-id check. The FreeBSD and Windows ARM64 workflows also exercise their packaging before a
+a PowerShell parse, xmllint (WiX) and
+the MSI icon-id check. The Windows ARM64 workflow also exercise their packaging before a
 release does.
 
 ## Scanner detections

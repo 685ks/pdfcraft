@@ -3,13 +3,13 @@
 <p align="center">
   <b>The PDF workbench; an open-source, modern PDF reader and editor, built in pure Rust.</b><br>
   Read, organize, combine, split and secure PDFs in a fast, native app, written in Rust from the ground up.<br>
-  macOS · Windows · Linux · FreeBSD · the web
+  Windows · the web
 </p>
 
 <p align="center">
   <img alt="License: MIT OR Apache-2.0" src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-12a58a?style=flat-square">
   <img alt="Written in Rust" src="https://img.shields.io/badge/written%20in-Rust-0a7563?style=flat-square">
-  <img alt="Platforms: macOS, Windows, Linux, FreeBSD, web" src="https://img.shields.io/badge/runs%20on-macOS%20%C2%B7%20Windows%20%C2%B7%20Linux%20%C2%B7%20FreeBSD%20%C2%B7%20web-12a58a?style=flat-square">
+  <img alt="Platforms: Windows, web" src="https://img.shields.io/badge/runs%20on-Windows%20%C2%B7%20web-12a58a?style=flat-square">
   <img alt="No account, no telemetry" src="https://img.shields.io/badge/no%20account-no%20telemetry-0a7563?style=flat-square">
 </p>
 
@@ -462,34 +462,6 @@ be told apart by version, so if your deployment tool checks the file, pin its SH
 **Publisher.** Releases of this fork are built by the Arthavan Projects release workflow
 (`.github/workflows/release.yml`). The MSI's manufacturer, shown as the publisher in Installed apps,
 is `Arthavan Projects`.
-
-### macOS
-
-| Build | File | Notes |
-|---|---|---|
-| App, universal (Apple silicon + Intel) | `pdfcraft-<ver>-macos-universal.dmg` | Signed and notarized |
-| Command-line tool, universal | `pdfcraft-cli-<ver>-macos-universal.zip` | Signed and notarized |
-
-### Linux
-
-| Format | x86_64 | aarch64 (ARM64) | Notes |
-|---|---|---|---|
-| AppImage | `pdfcraft-<ver>-linux-x86_64.AppImage` | `pdfcraft-<ver>-linux-aarch64.AppImage` | Runs anywhere; updates itself with [AppImageUpdate](https://github.com/AppImageCommunity/AppImageUpdate) (`.zsync` files) |
-| Flatpak | `pdfcraft-<ver>-linux-x86_64.flatpak` | `pdfcraft-<ver>-linux-aarch64.flatpak` | Sandboxed; `flatpak install --user <file>` |
-| Debian/Ubuntu | `pdfcraft-<ver>-linux-x86_64.deb` | `pdfcraft-<ver>-linux-aarch64.deb` | |
-| Fedora/RHEL/openSUSE | `pdfcraft-<ver>-linux-x86_64.rpm` | `pdfcraft-<ver>-linux-aarch64.rpm` | |
-| Tarball | `pdfcraft-<ver>-linux-x86_64.tar.gz` | `pdfcraft-<ver>-linux-aarch64.tar.gz` | Unpack anywhere |
-| Command-line tool | `pdfcraft-cli-<ver>-linux-x86_64.tar.gz` | `pdfcraft-cli-<ver>-linux-aarch64.tar.gz` | `pdfcraft-cli` alone (and its opt-in MCP server), for servers, CI and agents |
-
-RISC-V (riscv64) builds come as tarballs only: `pdfcraft-<ver>-linux-riscv64.tar.gz` and `pdfcraft-cli-<ver>-linux-riscv64.tar.gz`. They are cross-compiled and need glibc 2.39 or newer (Ubuntu 24.04+, Debian 13+).
-
-Every other Linux build needs glibc 2.35 or newer (Ubuntu 22.04+, Debian 12+, Fedora 36+, RHEL 10).
-
-### FreeBSD
-
-| Build | File |
-|---|---|
-| x86_64 | `pdfcraft-<ver>-freebsd-x86_64.tar.gz` |
 
 ### Web (WebAssembly)
 
