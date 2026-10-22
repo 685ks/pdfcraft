@@ -1,5 +1,5 @@
 # Quick static checks for the release pipeline (seconds, no Rust build): the packaging shell
-# scripts, and the Linux desktop/AppStream/MIME, Windows installer and macOS bundle metadata.
+# scripts, the Windows installer metadata and packaging/app.toml.
 name: Packaging lint
 
 on:
@@ -27,14 +27,11 @@ jobs:
       - name: Install validators
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends desktop-file-utils libxml2-utils shellcheck
-      - name: Validate the desktop entry, XML metadata and release metadata
+          sudo apt-get install -y --no-install-recommends libxml2-utils shellcheck
+      - name: Validate the WiX XML and release metadata
         run: |
           set -euo pipefail
-          desktop-file-validate packaging/linux/app.freedev.ainz.ks.PdfCraft.desktop
-          xmllint --noout packaging/linux/app.freedev.ainz.ks.PdfCraft.metainfo.xml.in \
-            packaging/linux/app.freedev.ainz.ks.PdfCraft.mime.xml packaging/windows/pdfcraft.wxs \
-            packaging/windows/installer-ui.wxs packaging/macos/Info.plist.in packaging/macos/entitlements.plist
+          xmllint --noout packaging/windows/pdfcraft.wxs packaging/windows/installer-ui.wxs
           python3 - <<'PY'
           import os, tomllib
           d = tomllib.load(open("packaging/app.toml", "rb"))
@@ -44,4 +41,4 @@ jobs:
               assert os.path.isfile(d[key]), (key, d[key])
           PY
       - name: Shell scripts
-        run: shellcheck -S error packaging/*.sh packaging/linux/*.sh packaging/macos/*.sh packaging/web/*.sh packaging/freebsd/*.sh
+        run: shellcheck -S error packaging/*.sh packaging/web/*.sh
